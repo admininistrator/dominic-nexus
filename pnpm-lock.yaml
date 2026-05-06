@@ -38,6 +38,9 @@ importers:
       '@dominic-nexus/permissions':
         specifier: workspace:*
         version: link:../../packages/permissions
+      '@dominic-nexus/providers':
+        specifier: workspace:*
+        version: link:../../packages/providers
 
   packages/channels:
     dependencies:

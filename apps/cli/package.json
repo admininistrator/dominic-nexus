@@ -18,6 +18,7 @@
     "@dominic-nexus/config": "workspace:*",
     "@dominic-nexus/core": "workspace:*",
     "@dominic-nexus/logging": "workspace:*",
-    "@dominic-nexus/permissions": "workspace:*"
+    "@dominic-nexus/permissions": "workspace:*",
+    "@dominic-nexus/providers": "workspace:*"
   }
 }
