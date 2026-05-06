@@ -1,0 +1,23 @@
+{
+  "name": "@dominic-nexus/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "dominic-nexus": "./src/index.ts"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@dominic-nexus/config": "workspace:*",
+    "@dominic-nexus/core": "workspace:*",
+    "@dominic-nexus/logging": "workspace:*",
+    "@dominic-nexus/permissions": "workspace:*"
+  }
+}
