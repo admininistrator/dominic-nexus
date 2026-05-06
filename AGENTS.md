@@ -107,3 +107,7 @@ Before finishing a task, report:
 - Tests/checks run
 - Remaining risks
 - Suggested next task
+
+## Code review
+
+When asked to review code, follow `../docs/code-review.md`.
