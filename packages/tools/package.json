@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@dominic-nexus/audit": "workspace:*",
+    "@dominic-nexus/memory": "workspace:*",
     "@dominic-nexus/permissions": "workspace:*",
     "@dominic-nexus/shared": "workspace:*"
   }

@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { InMemoryAuditSink } from "@dominic-nexus/audit";
+import { InMemoryStore, memoryNamespace, memoryRecordId, type MemoryRecord, type MemoryStore } from "@dominic-nexus/memory";
 import type { PermissionDecision, PermissionRequest, PolicyEngine } from "@dominic-nexus/permissions";
 import {
   AppError,
@@ -19,6 +20,8 @@ import {
   authorizeFilesystemWrite,
   FilesystemRootPolicy,
   jsonValueToolSchema,
+  registerMemorySearchTool,
+  registerMemoryWriteTool,
   registerEchoTool,
   registerReadFileTool,
   registerShellTool,
@@ -80,6 +83,57 @@ class SequencedPolicy implements PolicyEngine {
     const decision = this.decisions[this.index] ?? this.decisions.at(-1) ?? { allowed: false };
     this.index += 1;
     return decision;
+  }
+}
+
+class RecordingMemoryStore implements MemoryStore {
+  readonly writes: Parameters<MemoryStore["write"]>[0][] = [];
+  readonly searches: Parameters<MemoryStore["search"]>[0][] = [];
+
+  async write(record: Parameters<MemoryStore["write"]>[0]) {
+    this.writes.push(record);
+
+    const stored: MemoryRecord = {
+      id: memoryRecordId("memory-recording-1"),
+      namespace: memoryNamespace(record.namespace),
+      content: record.content,
+      createdAt: "2026-05-08T00:00:00.000Z",
+      updatedAt: "2026-05-08T00:00:00.000Z"
+    };
+
+    if (record.kind !== undefined) {
+      stored.kind = record.kind;
+    }
+
+    if (record.metadata !== undefined) {
+      stored.metadata = record.metadata;
+    }
+
+    if (record.provenance !== undefined) {
+      stored.provenance = record.provenance;
+    }
+
+    return stored;
+  }
+
+  async search(namespace: Parameters<MemoryStore["search"]>[0]) {
+    this.searches.push(namespace);
+
+    return [
+      {
+        id: memoryRecordId("memory-recording-1"),
+        namespace: memoryNamespace(namespace),
+        content: {
+          text: "recording memory"
+        },
+        kind: "fact" as const,
+        metadata: {
+          tag: "test"
+        },
+        createdAt: "2026-05-08T00:00:00.000Z",
+        updatedAt: "2026-05-08T00:00:00.000Z"
+      }
+    ];
   }
 }
 
@@ -2579,6 +2633,290 @@ describe("ToolRegistry", () => {
     expect(JSON.stringify(audit.listEvents())).not.toContain("ENV-VALUE-SECRET");
   });
 
+
+  it("searches memory records through ToolRegistry using MemoryStore", async () => {
+    const policy = new RecordingPolicy();
+    const registry = new ToolRegistry();
+    const store = new RecordingMemoryStore();
+
+    registerMemorySearchTool(registry, {
+      store
+    });
+
+    const result = await registry.invokeResult<{
+      namespace: string;
+      resultCount: number;
+      records: Array<{
+        id: string;
+        namespace: string;
+        content: JsonValue;
+        kind?: string;
+        metadata?: Record<string, JsonValue>;
+      }>;
+    }>(
+      {
+        toolName: toolName("memory.search"),
+        input: {
+          namespace: "notes"
+        }
+      },
+      { policy }
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.output).toEqual({
+        namespace: "notes",
+        resultCount: 1,
+        records: [
+          {
+            id: "memory-recording-1",
+            namespace: "notes",
+            content: {
+              text: "recording memory"
+            },
+            kind: "fact",
+            metadata: {
+              tag: "test"
+            },
+            createdAt: "2026-05-08T00:00:00.000Z",
+            updatedAt: "2026-05-08T00:00:00.000Z"
+          }
+        ]
+      });
+    }
+    expect(store.searches).toEqual(["notes"]);
+    expect(policy.requests).toEqual([
+      {
+        action: "memory.read",
+        reason: "Execute tool: memory.search",
+        resource: "memory.search",
+        metadata: {}
+      }
+    ]);
+  });
+
+  it("writes memory records through ToolRegistry using MemoryStore", async () => {
+    const policy = new RecordingPolicy();
+    const registry = new ToolRegistry();
+    const store = new RecordingMemoryStore();
+
+    registerMemoryWriteTool(registry, {
+      store
+    });
+
+    const result = await registry.invokeResult<{
+      record: {
+        id: string;
+        namespace: string;
+        content: JsonValue;
+        kind?: string;
+        metadata?: Record<string, JsonValue>;
+      };
+    }>(
+      {
+        toolName: toolName("memory.write"),
+        input: {
+          namespace: "notes",
+          kind: "fact",
+          content: {
+            text: "store through tool"
+          },
+          metadata: {
+            tag: "tool"
+          }
+        }
+      },
+      { policy }
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.output).toEqual({
+        record: {
+          id: "memory-recording-1",
+          namespace: "notes",
+          kind: "fact",
+          content: {
+            text: "store through tool"
+          },
+          metadata: {
+            tag: "tool"
+          },
+          createdAt: "2026-05-08T00:00:00.000Z",
+          updatedAt: "2026-05-08T00:00:00.000Z"
+        }
+      });
+    }
+    expect(store.writes).toEqual([
+      {
+        namespace: "notes",
+        kind: "fact",
+        content: {
+          text: "store through tool"
+        },
+        metadata: {
+          tag: "tool"
+        }
+      }
+    ]);
+    expect(policy.requests).toEqual([
+      {
+        action: "memory.write",
+        reason: "Execute tool: memory.write",
+        resource: "memory.write",
+        metadata: {}
+      }
+    ]);
+  });
+
+  it("does not mutate memory when MemoryStore denies memory.write", async () => {
+    const registryPolicy = new RecordingPolicy();
+    const storePolicy = new SequencedPolicy([{ allowed: false, reason: "blocked memory write" }, { allowed: true }]);
+    const registry = new ToolRegistry();
+    const store = new InMemoryStore(storePolicy);
+
+    registerMemoryWriteTool(registry, {
+      store
+    });
+
+    const writeResult = await registry.invokeResult(
+      {
+        toolName: toolName("memory.write"),
+        input: {
+          namespace: "notes",
+          content: {
+            text: "blocked"
+          }
+        }
+      },
+      { policy: registryPolicy }
+    );
+
+    expect(writeResult.ok).toBe(false);
+    if (!writeResult.ok) {
+      expect(serializeAppError(writeResult.error)).toEqual({
+        name: "AppError",
+        code: "memory.write_denied",
+        message: "Memory write denied",
+        context: {
+          namespace: "notes"
+        }
+      });
+    }
+
+    await expect(store.search("notes")).resolves.toEqual([]);
+    expect(registryPolicy.requests).toEqual([
+      {
+        action: "memory.write",
+        reason: "Execute tool: memory.write",
+        resource: "memory.write",
+        metadata: {}
+      }
+    ]);
+    expect(storePolicy.requests.map((request) => request.action)).toEqual(["memory.write", "memory.read"]);
+  });
+
+  it("audits memory tools without leaking memory content", async () => {
+    const { audit, context } = createAuditContext();
+    const policy = new RecordingPolicy();
+    const registry = new ToolRegistry();
+    const store = new InMemoryStore(policy, context, {
+      createRecordId: () => memoryRecordId("memory-tool-secret-safe")
+    });
+
+    registerMemoryWriteTool(registry, {
+      store
+    });
+    registerMemorySearchTool(registry, {
+      store
+    });
+
+    const writeResult = await registry.invokeResult(
+      {
+        toolName: toolName("memory.write"),
+        input: {
+          namespace: "notes",
+          content: {
+            text: "TOP-SECRET-MEMORY-CONTENT",
+            token: "secret-token"
+          },
+          metadata: {
+            password: "secret-password"
+          }
+        }
+      },
+      { policy, audit: context }
+    );
+    const searchResult = await registry.invokeResult(
+      {
+        toolName: toolName("memory.search"),
+        input: {
+          namespace: "notes"
+        }
+      },
+      { policy, audit: context }
+    );
+
+    expect(writeResult.ok).toBe(true);
+    expect(searchResult.ok).toBe(true);
+    const events = audit.listEvents();
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        action: "tool.execute",
+        decision: "allowed",
+        outcome: "succeeded",
+        resource: expect.objectContaining({
+          id: "memory.write"
+        })
+      })
+    );
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        action: "memory.write",
+        decision: "allowed",
+        outcome: "succeeded",
+        sourcePackage: "@dominic-nexus/tools",
+        metadata: {
+          namespace: "notes",
+          operation: "write",
+          resultCount: null,
+          recordId: "memory-tool-secret-safe",
+          errorCode: null
+        }
+      })
+    );
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        action: "memory.read",
+        decision: "allowed",
+        outcome: "succeeded",
+        sourcePackage: "@dominic-nexus/tools",
+        metadata: {
+          namespace: "notes",
+          operation: "search",
+          resultCount: 1,
+          recordId: null,
+          errorCode: null
+        }
+      })
+    );
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        action: "memory.write",
+        decision: "allowed",
+        outcome: "succeeded",
+        sourcePackage: "@dominic-nexus/memory",
+        metadata: expect.objectContaining({
+          namespace: "notes",
+          recordId: "memory-tool-secret-safe"
+        })
+      })
+    );
+    expect(JSON.stringify(events)).not.toContain("TOP-SECRET-MEMORY-CONTENT");
+    expect(JSON.stringify(events)).not.toContain("secret-token");
+    expect(JSON.stringify(events)).not.toContain("secret-password");
+  });
   it("exposes read file metadata only and does not export the raw tool", () => {
     const registry = new ToolRegistry();
 

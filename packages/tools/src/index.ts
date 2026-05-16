@@ -4,6 +4,15 @@ import { open, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { appendAuditEvent, type OptionalAuditRuntimeContext } from "@dominic-nexus/audit";
 import {
+  normalizeMemoryNamespace,
+  normalizeMemoryRecordWriteInput,
+  type MemoryRecord,
+  type MemoryRecordKind,
+  type MemoryRecordWriteInput,
+  type MemoryStore,
+  type NormalizedMemoryRecordWriteInput
+} from "@dominic-nexus/memory";
+import {
   decidePermissionWithAudit,
   NetworkPolicy,
   ShellPolicy,
@@ -499,6 +508,10 @@ export interface ShellToolOptions {
   defaultShell?: ShellToolShell;
 }
 
+export interface MemoryToolOptions {
+  store: MemoryStore;
+}
+
 type ReadFileToolInput = JsonObject & {
   path: string;
   maxBytes?: number;
@@ -572,6 +585,33 @@ type ShellToolInput = JsonObject & {
 };
 
 type ShellToolOutput = JsonObject & ShellExecutorResult;
+
+type MemorySearchToolInput = JsonObject & {
+  namespace: string;
+};
+
+type MemoryRecordToolOutput = JsonObject & {
+  id: string;
+  namespace: string;
+  content: JsonValue;
+  createdAt: string;
+  updatedAt: string;
+  kind?: MemoryRecordKind;
+  metadata?: JsonObject;
+  provenance?: JsonObject;
+};
+
+type MemorySearchToolOutput = JsonObject & {
+  namespace: string;
+  resultCount: number;
+  records: MemoryRecordToolOutput[];
+};
+
+type MemoryWriteToolInput = JsonObject & NormalizedMemoryRecordWriteInput;
+
+type MemoryWriteToolOutput = JsonObject & {
+  record: MemoryRecordToolOutput;
+};
 
 export type ToolSchemaKind = "json" | "object" | "array" | "string" | "number" | "integer" | "boolean" | "null";
 
@@ -712,6 +752,8 @@ const WRITE_FILE_TOOL_NAME = toolName("filesystem.write_file");
 const WEB_FETCH_TOOL_NAME = toolName("web.fetch");
 const WEB_SEARCH_TOOL_NAME = toolName("web.search");
 const SHELL_TOOL_NAME = toolName("shell.execute");
+const MEMORY_SEARCH_TOOL_NAME = toolName("memory.search");
+const MEMORY_WRITE_TOOL_NAME = toolName("memory.write");
 const DEFAULT_READ_FILE_MAX_BYTES = 64 * 1024;
 const ABSOLUTE_READ_FILE_MAX_BYTES = 1024 * 1024;
 const ABSOLUTE_WRITE_FILE_MAX_BYTES = 1024 * 1024;
@@ -735,6 +777,8 @@ const WRITE_FILE_INPUT_KEYS = new Set(["path", "content", "mode", "encoding"]);
 const WEB_FETCH_INPUT_KEYS = new Set(["url", "method", "headers", "maxBytes", "redirect"]);
 const WEB_SEARCH_INPUT_KEYS = new Set(["query", "maxResults"]);
 const SHELL_INPUT_KEYS = new Set(["command", "cwd", "env", "timeoutMs", "maxOutputBytes", "shell"]);
+const MEMORY_SEARCH_INPUT_KEYS = new Set(["namespace"]);
+const MEMORY_WRITE_INPUT_KEYS = new Set(["namespace", "content", "kind", "metadata", "provenance"]);
 const WEB_FETCH_ALLOWED_PROTOCOLS = new Set(["http:", "https:"]);
 const WEB_FETCH_SAFE_TEXT_CONTENT_TYPES = [
   "application/javascript",
@@ -1124,6 +1168,63 @@ function validateWebSearchProviderName(value: unknown): Result<string> {
 
 function shellToolError(message: string, context: JsonObject): Result<never> {
   return toolSchemaError("tool.invalid_input", message, context);
+}
+
+function memoryToolError(message: string, context: JsonObject): Result<never> {
+  return toolSchemaError("tool.invalid_input", message, context);
+}
+
+function memoryOutputError(message: string, context: JsonObject): Result<never> {
+  return toolSchemaError("tool.invalid_output", message, context);
+}
+
+function isMemoryRecordToolOutput(value: unknown): value is MemoryRecordToolOutput {
+  return (
+    isJsonObject(value) &&
+    typeof value.id === "string" &&
+    typeof value.namespace === "string" &&
+    "content" in value &&
+    isJsonValue(value.content) &&
+    typeof value.createdAt === "string" &&
+    typeof value.updatedAt === "string" &&
+    (value.kind === undefined || typeof value.kind === "string") &&
+    (value.metadata === undefined || isJsonObject(value.metadata)) &&
+    (value.provenance === undefined || isJsonObject(value.provenance))
+  );
+}
+
+function memoryRecordToToolOutput(record: MemoryRecord): MemoryRecordToolOutput {
+  const output: MemoryRecordToolOutput = {
+    id: record.id,
+    namespace: record.namespace,
+    content: record.content,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt
+  };
+
+  if (record.kind !== undefined) {
+    output.kind = record.kind;
+  }
+
+  if (record.metadata !== undefined) {
+    output.metadata = record.metadata;
+  }
+
+  if (record.provenance !== undefined) {
+    output.provenance = { ...record.provenance };
+  }
+
+  return output;
+}
+
+function normalizeMemoryRecordOutput(record: unknown): Result<MemoryRecordToolOutput> {
+  if (!isMemoryRecordToolOutput(record)) {
+    return memoryOutputError("Memory record output has an invalid shape", {
+      schemaName: "memory.record.output"
+    });
+  }
+
+  return ok(record);
 }
 
 function inferShellPlatform(): ShellToolPlatform {
@@ -2051,6 +2152,73 @@ function createShellInputSchema(options: {
   });
 }
 
+function createMemorySearchInputSchema(): ToolSchema<MemorySearchToolInput> {
+  return createToolSchema({
+    name: "memory.search.input",
+    kind: "object",
+    description: "Memory namespace search input.",
+    validate(value) {
+      if (!isJsonObject(value)) {
+        return memoryToolError("Memory search input must be a JSON-safe object", {
+          schemaName: "memory.search.input"
+        });
+      }
+
+      for (const key of Object.keys(value)) {
+        if (!MEMORY_SEARCH_INPUT_KEYS.has(key)) {
+          return memoryToolError("Memory search input contains an unknown field", {
+            field: key
+          });
+        }
+      }
+
+      const namespace = normalizeMemoryNamespace(value.namespace);
+      if (!namespace.ok) {
+        return memoryToolError("Memory search namespace is invalid", {
+          field: "namespace",
+          validationCode: namespace.error.code
+        });
+      }
+
+      return ok({
+        namespace: namespace.value
+      });
+    }
+  });
+}
+
+function createMemoryWriteInputSchema(): ToolSchema<MemoryWriteToolInput> {
+  return createToolSchema({
+    name: "memory.write.input",
+    kind: "object",
+    description: "Memory record write input.",
+    validate(value) {
+      if (!isJsonObject(value)) {
+        return memoryToolError("Memory write input must be a JSON-safe object", {
+          schemaName: "memory.write.input"
+        });
+      }
+
+      for (const key of Object.keys(value)) {
+        if (!MEMORY_WRITE_INPUT_KEYS.has(key)) {
+          return memoryToolError("Memory write input contains an unknown field", {
+            field: key
+          });
+        }
+      }
+
+      const normalized = normalizeMemoryRecordWriteInput(value);
+      if (!normalized.ok) {
+        return memoryToolError("Memory write input is invalid", {
+          validationCode: normalized.error.code
+        });
+      }
+
+      return ok(normalized.value as MemoryWriteToolInput);
+    }
+  });
+}
+
 const readFileOutputSchema = createToolSchema<ReadFileToolOutput>({
   name: "filesystem.read_file.output",
   kind: "object",
@@ -2294,6 +2462,70 @@ const shellOutputSchema = createToolSchema<ShellToolOutput>({
       stderrBytes: value.stderrBytes,
       stdoutTruncated: value.stdoutTruncated,
       stderrTruncated: value.stderrTruncated
+    });
+  }
+});
+
+const memorySearchOutputSchema = createToolSchema<MemorySearchToolOutput>({
+  name: "memory.search.output",
+  kind: "object",
+  description: "Memory namespace search output.",
+  validate(value) {
+    if (!isJsonObject(value)) {
+      return memoryOutputError("Memory search output must be a JSON-safe object", {
+        schemaName: "memory.search.output"
+      });
+    }
+
+    if (
+      typeof value.namespace !== "string" ||
+      typeof value.resultCount !== "number" ||
+      !Number.isInteger(value.resultCount) ||
+      value.resultCount < 0 ||
+      !Array.isArray(value.records) ||
+      value.records.length !== value.resultCount
+    ) {
+      return memoryOutputError("Memory search output has an invalid shape", {
+        schemaName: "memory.search.output"
+      });
+    }
+
+    const records: MemoryRecordToolOutput[] = [];
+    for (const record of value.records) {
+      const normalized = normalizeMemoryRecordOutput(record);
+      if (!normalized.ok) {
+        return normalized;
+      }
+
+      records.push(normalized.value);
+    }
+
+    return ok({
+      namespace: value.namespace,
+      resultCount: value.resultCount,
+      records
+    });
+  }
+});
+
+const memoryWriteOutputSchema = createToolSchema<MemoryWriteToolOutput>({
+  name: "memory.write.output",
+  kind: "object",
+  description: "Memory record write output.",
+  validate(value) {
+    if (!isJsonObject(value)) {
+      return memoryOutputError("Memory write output must be a JSON-safe object", {
+        schemaName: "memory.write.output"
+      });
+    }
+
+    const record = normalizeMemoryRecordOutput(value.record);
+    if (!record.ok) {
+      return record;
+    }
+
+    return ok({
+      record: record.value
     });
   }
 });
@@ -2667,6 +2899,39 @@ async function auditShellOperation(
       stderrBytes: options.stderrBytes ?? null,
       stdoutTruncated: options.stdoutTruncated ?? null,
       stderrTruncated: options.stderrTruncated ?? null,
+      errorCode: options.errorCode ?? null
+    }
+  });
+}
+
+async function auditMemoryToolOperation(
+  context: ToolExecutionContext,
+  options: {
+    action: "memory.read" | "memory.write";
+    decision: "allowed" | "denied" | "not_applicable";
+    outcome: "succeeded" | "failed" | "denied";
+    namespace: string;
+    operation: "search" | "write";
+    resultCount?: number;
+    recordId?: string;
+    errorCode?: string;
+  }
+): Promise<void> {
+  await appendAuditEvent(context.audit, {
+    sourcePackage: "@dominic-nexus/tools",
+    action: options.action,
+    decision: options.decision,
+    resource: {
+      type: "memory",
+      id: options.namespace,
+      name: options.namespace
+    },
+    outcome: options.outcome,
+    metadata: {
+      namespace: options.namespace,
+      operation: options.operation,
+      resultCount: options.resultCount ?? null,
+      recordId: options.recordId ?? null,
       errorCode: options.errorCode ?? null
     }
   });
@@ -3497,6 +3762,100 @@ function createWebSearchTool(options: WebSearchToolOptions): ToolDefinition<WebS
   };
 }
 
+function createMemorySearchTool(options: MemoryToolOptions): ToolDefinition<MemorySearchToolInput, MemorySearchToolOutput> {
+  return {
+    name: MEMORY_SEARCH_TOOL_NAME,
+    description: "Searches memory records by namespace through the configured MemoryStore.",
+    inputSchema: createMemorySearchInputSchema(),
+    outputSchema: memorySearchOutputSchema,
+    requiredPermissions: ["memory.read"],
+    async execute(input, context) {
+      let records: MemoryRecord[];
+      try {
+        records = await options.store.search(input.namespace);
+      } catch (error) {
+        const appError = toAppError(error, {
+          code: "tool.execution_failed",
+          message: "Memory search failed",
+          context: {
+            namespace: input.namespace
+          }
+        });
+        await auditMemoryToolOperation(context, {
+          action: "memory.read",
+          decision: appError.code === "memory.read_denied" ? "denied" : "allowed",
+          outcome: appError.code === "memory.read_denied" ? "denied" : "failed",
+          namespace: input.namespace,
+          operation: "search",
+          errorCode: appError.code
+        });
+        throw appError;
+      }
+
+      await auditMemoryToolOperation(context, {
+        action: "memory.read",
+        decision: "allowed",
+        outcome: "succeeded",
+        namespace: input.namespace,
+        operation: "search",
+        resultCount: records.length
+      });
+
+      return {
+        namespace: input.namespace,
+        resultCount: records.length,
+        records: records.map(memoryRecordToToolOutput)
+      };
+    }
+  };
+}
+
+function createMemoryWriteTool(options: MemoryToolOptions): ToolDefinition<MemoryWriteToolInput, MemoryWriteToolOutput> {
+  return {
+    name: MEMORY_WRITE_TOOL_NAME,
+    description: "Writes a memory record through the configured MemoryStore.",
+    inputSchema: createMemoryWriteInputSchema(),
+    outputSchema: memoryWriteOutputSchema,
+    requiredPermissions: ["memory.write"],
+    async execute(input, context) {
+      let record: MemoryRecord;
+      try {
+        record = await options.store.write(input as MemoryRecordWriteInput);
+      } catch (error) {
+        const appError = toAppError(error, {
+          code: "tool.execution_failed",
+          message: "Memory write failed",
+          context: {
+            namespace: input.namespace
+          }
+        });
+        await auditMemoryToolOperation(context, {
+          action: "memory.write",
+          decision: appError.code === "memory.write_denied" ? "denied" : "allowed",
+          outcome: appError.code === "memory.write_denied" ? "denied" : "failed",
+          namespace: input.namespace,
+          operation: "write",
+          errorCode: appError.code
+        });
+        throw appError;
+      }
+
+      await auditMemoryToolOperation(context, {
+        action: "memory.write",
+        decision: "allowed",
+        outcome: "succeeded",
+        namespace: input.namespace,
+        operation: "write",
+        recordId: record.id
+      });
+
+      return {
+        record: memoryRecordToToolOutput(record)
+      };
+    }
+  };
+}
+
 function validationFailure(
   direction: "input" | "output",
   tool: ToolDefinition,
@@ -3888,4 +4247,12 @@ export function registerWebSearchTool(registry: ToolRegistry, options: WebSearch
 
 export function registerShellTool(registry: ToolRegistry, options: ShellToolOptions = {}): void {
   registry.register(createShellTool(options));
+}
+
+export function registerMemorySearchTool(registry: ToolRegistry, options: MemoryToolOptions): void {
+  registry.register(createMemorySearchTool(options));
+}
+
+export function registerMemoryWriteTool(registry: ToolRegistry, options: MemoryToolOptions): void {
+  registry.register(createMemoryWriteTool(options));
 }
