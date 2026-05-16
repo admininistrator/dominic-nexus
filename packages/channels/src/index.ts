@@ -1,20 +1,20 @@
-import type { JsonValue } from "@dominic-nexus/shared";
+import type { ChannelId, JsonValue } from "@dominic-nexus/shared";
 
 export interface ChannelMessage {
   id: string;
-  channelName: string;
+  channelName: ChannelId;
   authorId: string;
   content: string;
   metadata?: Record<string, JsonValue>;
 }
 
 export interface ChannelSendRequest {
-  channelName: string;
+  channelName: ChannelId;
   content: string;
   metadata?: Record<string, JsonValue>;
 }
 
 export interface Channel {
-  name: string;
+  name: ChannelId;
   send(request: ChannelSendRequest): Promise<ChannelMessage>;
 }

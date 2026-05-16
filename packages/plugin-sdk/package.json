@@ -16,9 +16,6 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@dominic-nexus/channels": "workspace:*",
-    "@dominic-nexus/providers": "workspace:*",
-    "@dominic-nexus/shared": "workspace:*",
-    "@dominic-nexus/tools": "workspace:*"
+    "@dominic-nexus/shared": "workspace:*"
   }
 }

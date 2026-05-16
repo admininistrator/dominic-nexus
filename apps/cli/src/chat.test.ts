@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AgentSession, RuntimeContext } from "@dominic-nexus/core";
 import type { Logger } from "@dominic-nexus/logging";
-import type { ChatRequest, ChatResponse, ModelProvider } from "@dominic-nexus/providers";
+import { AllowAllDevelopmentPolicy, InteractiveApprovalPolicy, type PolicyEngine } from "@dominic-nexus/permissions";
+import { MockProvider, ProviderRegistry, type ChatRequest, type ChatResponse, type ModelProvider } from "@dominic-nexus/providers";
+import { agentId, providerName, sessionId } from "@dominic-nexus/shared";
 import { createChatLoopState, handleChatInput } from "./chat.js";
 
 function createLogger(): Logger {
@@ -13,11 +15,19 @@ function createLogger(): Logger {
   };
 }
 
-function createSession(): AgentSession {
+function createSession(policy: PolicyEngine = new AllowAllDevelopmentPolicy()): AgentSession {
   return {
-    id: "session-test",
-    runtime: {} as RuntimeContext,
-    metadata: {}
+    id: sessionId("session-test"),
+    agentId: agentId("agent-test"),
+    runtime: {
+      policy
+    } as unknown as RuntimeContext,
+    metadata: {
+      sessionStartedAt: "2026-05-10T00:00:00.000Z",
+      lastInteractionAt: null,
+      updatedAt: "2026-05-10T00:00:00.000Z",
+      attributes: {}
+    }
   };
 }
 
@@ -36,17 +46,45 @@ function createOutput() {
 
 function createProvider(response: ChatResponse = { message: { role: "assistant", content: "mock reply" } }) {
   const requests: ChatRequest[] = [];
+  const registry = new ProviderRegistry();
   const provider: ModelProvider = {
-    name: "test-provider",
+    name: providerName("test-provider"),
+    capabilities: {
+      chat: true,
+      modelListing: false
+    },
     async chat(request) {
       requests.push(request);
       return response;
     }
   };
+  registry.register(provider);
 
   return {
-    provider,
+    providers: registry,
+    providerName: provider.name,
     requests
+  };
+}
+
+function createInteractiveMockProvider(answer: string) {
+  const prompts: unknown[] = [];
+  const policy = new InteractiveApprovalPolicy({
+    prompt(request) {
+      prompts.push(request);
+      return answer;
+    }
+  });
+
+  return {
+    providers: (() => {
+      const registry = new ProviderRegistry();
+      registry.register(new MockProvider(policy));
+      return registry;
+    })(),
+    providerName: providerName("mock"),
+    policy,
+    prompts
   };
 }
 
@@ -55,13 +93,14 @@ describe("handleChatInput", () => {
     const state = createChatLoopState();
     const logger = createLogger();
     const { output, lines } = createOutput();
-    const { provider, requests } = createProvider();
+    const { providers, providerName, requests } = createProvider();
 
     await expect(
       handleChatInput({
         line: "   ",
         session: createSession(),
-        provider,
+        providers,
+        providerName,
         logger,
         output,
         state
@@ -78,13 +117,14 @@ describe("handleChatInput", () => {
     const state = createChatLoopState();
     const logger = createLogger();
     const { output, lines } = createOutput();
-    const { provider, requests } = createProvider();
+    const { providers, providerName, requests } = createProvider();
 
     await expect(
       handleChatInput({
         line: "/exit",
         session: createSession(),
-        provider,
+        providers,
+        providerName,
         logger,
         output,
         state
@@ -102,7 +142,7 @@ describe("handleChatInput", () => {
     const state = createChatLoopState();
     const logger = createLogger();
     const { output, lines } = createOutput();
-    const { provider, requests } = createProvider({
+    const { providers, providerName, requests } = createProvider({
       message: {
         role: "assistant",
         content: "hello back"
@@ -113,7 +153,8 @@ describe("handleChatInput", () => {
       handleChatInput({
         line: " hello ",
         session: createSession(),
-        provider,
+        providers,
+        providerName,
         logger,
         output,
         state
@@ -151,6 +192,98 @@ describe("handleChatInput", () => {
     expect(logger.info).toHaveBeenCalledWith("CLI assistant response sent", {
       sessionId: "session-test",
       messageLength: 10
+    });
+  });
+
+  it("requires approval before CLI provider calls", async () => {
+    const state = createChatLoopState();
+    const logger = createLogger();
+    const { output, lines } = createOutput();
+    const { providers, providerName, policy, prompts } = createInteractiveMockProvider("yes");
+
+    await expect(
+      handleChatInput({
+        line: "approve this",
+        session: createSession(policy),
+        providers,
+        providerName,
+        logger,
+        output,
+        state
+      })
+    ).resolves.toBe("continue");
+
+    expect(prompts).toEqual([
+      {
+        action: "provider.call",
+        reason: "Call mock model provider",
+        resource: "mock"
+      }
+    ]);
+    expect(lines).toEqual(["Assistant: approve this"]);
+    expect(state.messages).toEqual([
+      {
+        role: "user",
+        content: "approve this"
+      },
+      {
+        role: "assistant",
+        content: "approve this"
+      }
+    ]);
+  });
+
+  it("shows denied approvals without crashing or committing chat history", async () => {
+    const state = createChatLoopState();
+    const logger = createLogger();
+    const { output, lines } = createOutput();
+    const { providers, providerName, policy } = createInteractiveMockProvider("no");
+
+    await expect(
+      handleChatInput({
+        line: "deny this",
+        session: createSession(policy),
+        providers,
+        providerName,
+        logger,
+        output,
+        state
+      })
+    ).resolves.toBe("continue");
+
+    expect(lines).toEqual(["Error: Provider permission denied: mock"]);
+    expect(state.messages).toEqual([]);
+    expect(logger.warn).toHaveBeenCalledWith("CLI provider call failed", {
+      sessionId: "session-test",
+      errorCode: "provider.permission_denied",
+      errorMessage: "Provider permission denied: mock"
+    });
+  });
+
+  it("denies invalid approval answers without crashing or committing chat history", async () => {
+    const state = createChatLoopState();
+    const logger = createLogger();
+    const { output, lines } = createOutput();
+    const { providers, providerName, policy } = createInteractiveMockProvider("maybe");
+
+    await expect(
+      handleChatInput({
+        line: "invalid answer",
+        session: createSession(policy),
+        providers,
+        providerName,
+        logger,
+        output,
+        state
+      })
+    ).resolves.toBe("continue");
+
+    expect(lines).toEqual(["Error: Provider permission denied: mock"]);
+    expect(state.messages).toEqual([]);
+    expect(logger.warn).toHaveBeenCalledWith("CLI provider call failed", {
+      sessionId: "session-test",
+      errorCode: "provider.permission_denied",
+      errorMessage: "Provider permission denied: mock"
     });
   });
 });

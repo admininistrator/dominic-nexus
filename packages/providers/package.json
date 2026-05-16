@@ -16,7 +16,9 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
+    "@dominic-nexus/audit": "workspace:*",
     "@dominic-nexus/permissions": "workspace:*",
+    "@dominic-nexus/secrets": "workspace:*",
     "@dominic-nexus/shared": "workspace:*"
   }
 }

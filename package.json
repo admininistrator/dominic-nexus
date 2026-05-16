@@ -9,7 +9,7 @@
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
-    "lint": "pnpm -r lint",
+    "lint": "node scripts/lint-workspace.mjs && pnpm -r lint",
     "clean": "pnpm -r clean"
   },
   "devDependencies": {

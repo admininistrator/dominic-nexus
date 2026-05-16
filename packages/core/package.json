@@ -16,10 +16,13 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
+    "@dominic-nexus/audit": "workspace:*",
     "@dominic-nexus/config": "workspace:*",
     "@dominic-nexus/logging": "workspace:*",
+    "@dominic-nexus/memory": "workspace:*",
     "@dominic-nexus/permissions": "workspace:*",
     "@dominic-nexus/providers": "workspace:*",
+    "@dominic-nexus/secrets": "workspace:*",
     "@dominic-nexus/shared": "workspace:*",
     "@dominic-nexus/tools": "workspace:*"
   }

@@ -14,5 +14,9 @@
     "test": "vitest run --passWithNoTests",
     "lint": "tsc -p tsconfig.json --noEmit",
     "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@dominic-nexus/audit": "workspace:*",
+    "@dominic-nexus/shared": "workspace:*"
   }
 }
