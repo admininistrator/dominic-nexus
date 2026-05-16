@@ -1,0 +1,2297 @@
+{
+  "schemaVersion": 1,
+  "project": "dominic-nexus",
+  "updated": "2026-05-15",
+  "taskSource": "docs/implementation-plan.md",
+  "referenceSource": "docs/reference-tree.txt",
+  "rules": [
+    "Do not modify reference-openclaw.",
+    "Do not copy large implementation blocks from reference-openclaw.",
+    "Implement product code only under dominic-nexus.",
+    "Keep documentation and planning changes under docs.",
+    "Run the narrowest relevant check after code changes.",
+    "Default security posture is deny-by-default with explicit approval for risky actions."
+  ],
+  "statusLegend": {
+    "done": "Task is complete in the current baseline or completed by the planning update.",
+    "todo": "Task is ready or waiting for dependencies.",
+    "blocked": "Task cannot start until an external decision or missing dependency is resolved.",
+    "deferred": "Task is intentionally postponed until the core runtime is stable."
+  },
+  "selectionPolicy": [
+    "Read dominic-nexus/AGENTS.md first.",
+    "Read docs/implementation-plan.md before implementation work.",
+    "Choose the lowest-phase todo task whose dependencies are done.",
+    "Prefer P0 tasks before P1 and P2 tasks.",
+    "Keep reference inspection narrow and summarize new findings into docs."
+  ],
+  "tasks": [
+    {
+      "id": "P00-T01",
+      "phase": "P00-reference-governance",
+      "priority": "P0",
+      "status": "done",
+      "title": "Initialize detailed plan and task board",
+      "goal": "Make implementation-plan.md and tasks.json authoritative for future Codex work.",
+      "scope": [
+        "Compare docs/reference-tree.txt with the existing implementation plan.",
+        "Reflect the current dominic-nexus scaffold state.",
+        "Create a structured tasks.json backlog."
+      ],
+      "acceptanceCriteria": [
+        "docs/implementation-plan.md explains target phases and reference-tree mapping.",
+        "docs/tasks.json contains machine-readable tasks with status and dependencies.",
+        "No reference-openclaw files are modified."
+      ],
+      "checks": [
+        "Validate JSON syntax for docs/tasks.json."
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "P00-T02",
+      "phase": "P00-reference-governance",
+      "priority": "P0",
+      "status": "done",
+      "title": "Create feature parity checklist",
+      "goal": "Track architecture parity without implying full provider/channel parity.",
+      "scope": [
+        "Create docs/feature-parity-checklist.md.",
+        "Map reference domains to target packages.",
+        "Label each area as required, selected, deferred, or out-of-scope."
+      ],
+      "acceptanceCriteria": [
+        "Checklist covers runtime, config, permissions, secrets, tools, memory, providers, channels, plugins, UI, tests, and release.",
+        "Checklist explicitly says Dominic Nexus reimplements architecture patterns, not reference code.",
+        "Deferred provider/channel/media surfaces are separated from core security requirements."
+      ],
+      "checks": [
+        "Docs-only review."
+      ],
+      "dependencies": [
+        "P00-T01"
+      ]
+    },
+    {
+      "id": "P00-T03",
+      "phase": "P00-reference-governance",
+      "priority": "P0",
+      "status": "done",
+      "title": "Create security notes and trust model",
+      "goal": "Document Dominic Nexus security assumptions before adding powerful tools.",
+      "scope": [
+        "Create or update docs/security-notes.md.",
+        "Define local operator boundary, trusted plugins, channel trust, secret handling, and telemetry policy.",
+        "List explicit differences from OpenClaw defaults."
+      ],
+      "acceptanceCriteria": [
+        "Shell, filesystem write, network, provider, plugin, and secret access are documented as deny-by-default.",
+        "The trust model says Gateway callers are not hostile tenants.",
+        "No silent telemetry and no secret logging are called out as hard requirements."
+      ],
+      "checks": [
+        "Docs-only review."
+      ],
+      "dependencies": [
+        "P00-T01"
+      ]
+    },
+    {
+      "id": "P00-T04",
+      "phase": "P00-reference-governance",
+      "priority": "P1",
+      "status": "done",
+      "title": "Document package boundary matrix",
+      "goal": "Make allowed imports and ownership clear before packages grow.",
+      "scope": [
+        "Create docs/package-boundaries.md.",
+        "Define which packages may import shared, config, logging, permissions, secrets, memory, tools, providers, channels, plugin-sdk, and core.",
+        "Identify future boundary tests."
+      ],
+      "acceptanceCriteria": [
+        "Core orchestration boundaries are explicit.",
+        "Provider and channel packages cannot depend on core internals.",
+        "Plugin SDK exposes only public contracts."
+      ],
+      "checks": [
+        "Docs-only review."
+      ],
+      "dependencies": [
+        "P00-T03"
+      ]
+    },
+    {
+      "id": "P01-T01",
+      "phase": "P01-scaffold",
+      "priority": "P0",
+      "status": "done",
+      "title": "Scaffold TypeScript pnpm monorepo",
+      "goal": "Create the initial workspace and package structure.",
+      "scope": [
+        "Root package scripts.",
+        "pnpm workspace.",
+        "TypeScript base config.",
+        "Vitest config.",
+        "Initial package directories."
+      ],
+      "acceptanceCriteria": [
+        "dominic-nexus/package.json contains dev, build, typecheck, test, lint, and clean scripts.",
+        "Core package directories exist under dominic-nexus/packages.",
+        "CLI app exists under dominic-nexus/apps/cli."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "P01-T02",
+      "phase": "P01-scaffold",
+      "priority": "P0",
+      "status": "done",
+      "title": "Add baseline package exports",
+      "goal": "Provide initial interfaces for every planned core package.",
+      "scope": [
+        "shared, config, logging, permissions, secrets, memory, tools, providers, channels, plugin-sdk, and core package exports.",
+        "Simple runtime context and session creation.",
+        "Mock provider and echo tool."
+      ],
+      "acceptanceCriteria": [
+        "Packages compile as ESM TypeScript.",
+        "Core can create a runtime context.",
+        "Tool and provider registries have baseline behavior."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P01-T01"
+      ]
+    },
+    {
+      "id": "P01-T03",
+      "phase": "P01-scaffold",
+      "priority": "P0",
+      "status": "done",
+      "title": "Add scaffold regression tests",
+      "goal": "Lock the initial behavior before deeper features are added.",
+      "scope": [
+        "DefaultDenyPolicy and AllowAllDevelopmentPolicy.",
+        "InteractiveApprovalPolicy.",
+        "ToolRegistry.",
+        "MockProvider.",
+        "EnvSecretStore.",
+        "InMemoryStore.",
+        "createRuntimeContext and createAgentSession.",
+        "CLI chat input handling."
+      ],
+      "acceptanceCriteria": [
+        "Tests cover both allow and deny paths for sensitive operations.",
+        "CLI chat tests avoid external network calls.",
+        "Provider calls pass through permission checks."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P01-T02"
+      ]
+    },
+    {
+      "id": "P01-T04",
+      "phase": "P01-scaffold",
+      "priority": "P0",
+      "status": "done",
+      "title": "Implement minimal CLI chat loop",
+      "goal": "Make pnpm.cmd dev start a local interactive chat with no network calls.",
+      "scope": [
+        "Read user input from stdin.",
+        "Send messages to MockProvider.",
+        "Print assistant response.",
+        "Support /exit."
+      ],
+      "acceptanceCriteria": [
+        "Empty input does not call the provider.",
+        "/exit exits cleanly.",
+        "User messages and assistant responses are preserved in local loop state."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test",
+        "pnpm.cmd dev"
+      ],
+      "dependencies": [
+        "P01-T03"
+      ]
+    },
+    {
+      "id": "P01-T05",
+      "phase": "P01-scaffold",
+      "priority": "P1",
+      "status": "done",
+      "title": "Make lint script meaningful",
+      "goal": "Ensure pnpm.cmd lint runs a real check in each package or is intentionally documented.",
+      "scope": [
+        "Inspect package-level lint scripts.",
+        "Add TypeScript-aware lint or a lightweight no-op policy only if documented.",
+        "Avoid adding heavy dependencies without justification."
+      ],
+      "acceptanceCriteria": [
+        "pnpm.cmd lint succeeds and provides useful signal.",
+        "Any new dependency is explained in docs or commit notes.",
+        "No generated files are committed."
+      ],
+      "checks": [
+        "pnpm.cmd lint",
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P01-T03"
+      ]
+    },
+    {
+      "id": "P02-T01",
+      "phase": "P02-shared-primitives",
+      "priority": "P0",
+      "status": "done",
+      "title": "Add shared branded IDs",
+      "goal": "Avoid stringly typed session, agent, tool, provider, channel, and plugin IDs.",
+      "scope": [
+        "Define branded ID types in packages/shared.",
+        "Add constructors or validators for runtime-created IDs.",
+        "Use IDs in core, tools, providers, and channels where practical."
+      ],
+      "acceptanceCriteria": [
+        "SessionId, AgentId, ToolName, ProviderName, ChannelId, and PluginId are exported.",
+        "Existing tests compile after adopting the shared types.",
+        "ID helpers are deterministic in tests where needed."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P01-T03"
+      ]
+    },
+    {
+      "id": "P02-T02",
+      "phase": "P02-shared-primitives",
+      "priority": "P1",
+      "status": "done",
+      "title": "Add shared result and error helpers",
+      "goal": "Standardize expected failures without throwing raw errors everywhere.",
+      "scope": [
+        "Define Result, AppError, error codes, and safe error serialization.",
+        "Adopt in config, permissions, tools, providers, and core where useful.",
+        "Keep thrown exceptions only at process boundaries or unexpected failures."
+      ],
+      "acceptanceCriteria": [
+        "Permission/tool/provider failures can be serialized safely.",
+        "Errors do not include secret values.",
+        "Existing behavior remains covered by tests."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P02-T01"
+      ]
+    },
+    {
+      "id": "P02-T03",
+      "phase": "P02-shared-primitives",
+      "priority": "P1",
+      "status": "done",
+      "title": "Add shared domain events",
+      "goal": "Define a common event vocabulary before audit, Gateway, and UI depend on it.",
+      "scope": [
+        "Define lifecycle, permission, provider, tool, memory, secret, session, and channel events.",
+        "Keep event payloads JSON-safe.",
+        "Add tests for event shape compatibility."
+      ],
+      "acceptanceCriteria": [
+        "Events include timestamp, eventId, sessionId when applicable, and source package.",
+        "Event payloads cannot contain functions or non-JSON values.",
+        "The event model can be used by audit and Gateway later."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P02-T01"
+      ]
+    },
+    {
+      "id": "P02-T04",
+      "phase": "P02-shared-primitives",
+      "priority": "P2",
+      "status": "done",
+      "title": "Add deterministic runtime utilities",
+      "goal": "Make tests stable without global Date.now or randomUUID patching.",
+      "scope": [
+        "Add Clock and IdGenerator interfaces.",
+        "Provide production and test implementations.",
+        "Inject into core session creation and audit events."
+      ],
+      "acceptanceCriteria": [
+        "Session and event tests can use deterministic IDs and timestamps.",
+        "Production defaults still use real time and random IDs.",
+        "No global mutable test state is required."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P02-T01"
+      ]
+    },
+    {
+      "id": "P03-T01",
+      "phase": "P03-config-logging-audit",
+      "priority": "P0",
+      "status": "done",
+      "title": "Implement strict config schema",
+      "goal": "Replace env-only config with validated source and runtime config.",
+      "scope": [
+        "Define SourceConfig and RuntimeConfig.",
+        "Reject unknown keys and malformed values.",
+        "Support explicit config file path for tests.",
+        "Keep environment overrides narrow and documented."
+      ],
+      "acceptanceCriteria": [
+        "Malformed config fails closed.",
+        "Unknown config keys fail validation.",
+        "Runtime defaults are applied by pure functions.",
+        "Tests cover valid, invalid, unknown-key, and missing-file cases."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P02-T02"
+      ]
+    },
+    {
+      "id": "P03-T02",
+      "phase": "P03-config-logging-audit",
+      "priority": "P0",
+      "status": "done",
+      "title": "Add safe config write operations",
+      "goal": "Allow future CLI/UI config edits without corrupting source config or secrets.",
+      "scope": [
+        "Implement get, set, unset, merge, and replace primitives.",
+        "Prevent redacted placeholders from being written as real config.",
+        "Require permission for filesystem writes."
+      ],
+      "acceptanceCriteria": [
+        "Config writes are atomic enough for local use.",
+        "SecretRef values are preserved without logging resolved secrets.",
+        "Filesystem write permission is checked before mutation."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P03-T01",
+        "P04-T03"
+      ]
+    },
+    {
+      "id": "P03-T03",
+      "phase": "P03-config-logging-audit",
+      "priority": "P0",
+      "status": "done",
+      "title": "Add recursive log redaction",
+      "goal": "Ensure logs never expose secret values or sensitive credential shapes.",
+      "scope": [
+        "Add redaction helpers to packages/logging.",
+        "Redact known keys such as token, key, secret, password, credential, authorization, and cookie.",
+        "Support nested objects and arrays."
+      ],
+      "acceptanceCriteria": [
+        "Logger tests prove nested sensitive values are redacted.",
+        "Non-sensitive context remains visible.",
+        "Redaction handles circular or invalid values safely if supported."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P02-T02"
+      ]
+    },
+    {
+      "id": "P03-T04",
+      "phase": "P03-config-logging-audit",
+      "priority": "P0",
+      "status": "done",
+      "title": "Add audit package or audit primitives",
+      "goal": "Create an append-only event trail for sensitive actions.",
+      "scope": [
+        "Add packages/audit or audit module in packages/core.",
+        "Define AuditEvent, AuditSink, InMemoryAuditSink, and redacted serializers.",
+        "Include timestamp, actor/session, action, decision, resource, and metadata."
+      ],
+      "acceptanceCriteria": [
+        "Audit events never include secret values.",
+        "Tests can assert emitted audit events deterministically.",
+        "Audit API is independent from CLI and UI."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P02-T03",
+        "P03-T03"
+      ]
+    },
+    {
+      "id": "P03-T05",
+      "phase": "P03-config-logging-audit",
+      "priority": "P0",
+      "status": "done",
+      "title": "Integrate audit into sensitive paths",
+      "goal": "Record every provider, tool, secret, memory, config, and permission decision.",
+      "scope": [
+        "Wire audit sink into RuntimeContext.",
+        "Emit audit events from providers, tools, memory, secrets, permissions, and config writes.",
+        "Cover both allow and deny outcomes."
+      ],
+      "acceptanceCriteria": [
+        "Deny decisions are audited.",
+        "Allowed sensitive actions are audited before or after execution with outcome status.",
+        "Tests verify no secret values enter audit metadata."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P03-T04"
+      ]
+    },
+    {
+      "id": "P04-T01",
+      "phase": "P04-permissions-secrets-security",
+      "priority": "P0",
+      "status": "done",
+      "title": "Expand permission decision model",
+      "goal": "Represent allow, deny, approval-required, policy source, and audit metadata cleanly.",
+      "scope": [
+        "Add decision kind or equivalent structured fields.",
+        "Keep deny-by-default behavior.",
+        "Make decisions serializable without secrets."
+      ],
+      "acceptanceCriteria": [
+        "Existing policies still work after migration.",
+        "Interactive approval can express user-approved and user-denied decisions.",
+        "Tests cover risky and non-risky actions."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P03-T04"
+      ]
+    },
+    {
+      "id": "P04-T02",
+      "phase": "P04-permissions-secrets-security",
+      "priority": "P0",
+      "status": "done",
+      "title": "Use interactive approval policy in CLI runtime",
+      "goal": "Avoid allow-all development behavior in interactive local use.",
+      "scope": [
+        "Wire deterministic prompt IO into CLI runtime policy.",
+        "Prompt before provider.call and future risky actions.",
+        "Keep tests deterministic with prompt adapters."
+      ],
+      "acceptanceCriteria": [
+        "CLI provider calls require explicit approval unless config says otherwise.",
+        "Denied approval fails visibly without crashing the process unexpectedly.",
+        "Tests cover approve, deny, and invalid answer."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test",
+        "pnpm.cmd dev"
+      ],
+      "dependencies": [
+        "P04-T01",
+        "P03-T05"
+      ]
+    },
+    {
+      "id": "P04-T03",
+      "phase": "P04-permissions-secrets-security",
+      "priority": "P0",
+      "status": "done",
+      "title": "Implement filesystem root policy",
+      "goal": "Bound all filesystem reads and writes to approved roots.",
+      "scope": [
+        "Add path normalization helpers.",
+        "Reject traversal outside configured roots.",
+        "Reject symlink escapes where applicable.",
+        "Require explicit permission for writes."
+      ],
+      "acceptanceCriteria": [
+        "Workspace-bound reads cannot escape approved roots.",
+        "Writes require filesystem.write permission.",
+        "Windows path edge cases are tested."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P04-T01"
+      ]
+    },
+    {
+      "id": "P04-T04",
+      "phase": "P04-permissions-secrets-security",
+      "priority": "P0",
+      "status": "done",
+      "title": "Define shell execution policy",
+      "goal": "Keep shell disabled by default and make future execution auditable.",
+      "scope": [
+        "Define ShellPolicy and execution request shape.",
+        "Validate command, cwd, env, timeout, and approval binding.",
+        "Reject risky env overrides such as PATH, LD_*, and DYLD_* unless explicitly allowed."
+      ],
+      "acceptanceCriteria": [
+        "Default policy denies shell.execute.",
+        "Approval decisions bind to the exact command request.",
+        "Tests cover denied shell, approved shell metadata, and env guardrails."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P04-T01",
+        "P03-T05"
+      ]
+    },
+    {
+      "id": "P04-T05",
+      "phase": "P04-permissions-secrets-security",
+      "priority": "P0",
+      "status": "done",
+      "title": "Define network request policy",
+      "goal": "Ensure every external request requires explicit permission.",
+      "scope": [
+        "Define NetworkPolicy and request metadata.",
+        "Support allowlist-ready host/resource fields.",
+        "Audit allow and deny decisions."
+      ],
+      "acceptanceCriteria": [
+        "Default policy denies network.request.",
+        "Network tools cannot bypass policy.",
+        "Tests cover denied and approved network metadata."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P04-T01",
+        "P03-T05"
+      ]
+    },
+    {
+      "id": "P04-T06",
+      "phase": "P04-permissions-secrets-security",
+      "priority": "P0",
+      "status": "done",
+      "title": "Implement SecretRef resolver",
+      "goal": "Resolve active secrets into runtime snapshots without logging values.",
+      "scope": [
+        "Define SecretRef schema.",
+        "Add resolver for env-backed secrets.",
+        "Represent unresolved active secrets as startup/reload failures.",
+        "Keep inactive unresolved secrets as warnings only when appropriate."
+      ],
+      "acceptanceCriteria": [
+        "Secret values are not logged, thrown, or stored in audit events.",
+        "Active unresolved secrets fail closed.",
+        "Tests cover redaction and permission denial."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P03-T03",
+        "P04-T01"
+      ]
+    },
+    {
+      "id": "P04-T07",
+      "phase": "P04-permissions-secrets-security",
+      "priority": "P1",
+      "status": "done",
+      "title": "Add import boundary tests",
+      "goal": "Prevent package coupling that would bypass policy boundaries.",
+      "scope": [
+        "Add tests or scripts for disallowed imports.",
+        "Protect plugin-sdk from importing core internals.",
+        "Protect providers and channels from reaching around registries."
+      ],
+      "acceptanceCriteria": [
+        "Boundary check fails on known-bad import examples.",
+        "Allowed import graph is documented in docs/package-boundaries.md.",
+        "Check runs in pnpm.cmd test or a documented script."
+      ],
+      "checks": [
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P00-T04"
+      ]
+    },
+    {
+      "id": "P05-T01",
+      "phase": "P05-core-runtime-sessions",
+      "priority": "P0",
+      "status": "done",
+      "title": "Expand RuntimeContext dependencies",
+      "goal": "Make core orchestration use explicit dependencies instead of hidden globals.",
+      "scope": [
+        "Add audit, memory, secrets, session store, clock, and id generator dependencies.",
+        "Keep provider, tool, config, logging, and permission dependencies explicit.",
+        "Update tests to use deterministic dependencies."
+      ],
+      "acceptanceCriteria": [
+        "RuntimeContext construction is pure and testable.",
+        "Core does not read process.env directly.",
+        "Core does not instantiate hidden global stores."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P02-T04",
+        "P03-T05",
+        "P04-T06"
+      ]
+    },
+    {
+      "id": "P05-T02",
+      "phase": "P05-core-runtime-sessions",
+      "priority": "P0",
+      "status": "done",
+      "title": "Implement durable session store",
+      "goal": "Persist session metadata separately from transcripts.",
+      "scope": [
+        "Define session metadata shape.",
+        "Track sessionStartedAt, lastInteractionAt, and updatedAt separately.",
+        "Persist under configured state directory."
+      ],
+      "acceptanceCriteria": [
+        "Sessions can be created, listed, loaded, and updated.",
+        "Background metadata writes do not incorrectly extend interaction freshness.",
+        "Filesystem writes require permission."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P05-T01",
+        "P04-T03"
+      ]
+    },
+    {
+      "id": "P05-T03",
+      "phase": "P05-core-runtime-sessions",
+      "priority": "P0",
+      "status": "done",
+      "title": "Implement transcript JSONL store",
+      "goal": "Persist conversation events append-only per session.",
+      "scope": [
+        "Create transcript event schema.",
+        "Append user, assistant, tool, lifecycle, and error events.",
+        "Serialize writes per session to avoid races."
+      ],
+      "acceptanceCriteria": [
+        "Transcript files are JSONL and recoverable line by line.",
+        "Concurrent writes for the same session are serialized.",
+        "Tests cover append, read, malformed line handling, and write denial."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P05-T02",
+        "P02-T03"
+      ]
+    },
+    {
+      "id": "P05-T04",
+      "phase": "P05-core-runtime-sessions",
+      "priority": "P0",
+      "status": "done",
+      "title": "Implement AgentRunner turn lifecycle",
+      "goal": "Move chat behavior from CLI wiring into core runtime orchestration.",
+      "scope": [
+        "Normalize user intake.",
+        "Assemble context and messages.",
+        "Call provider through registry and permission checks.",
+        "Persist transcript and audit events.",
+        "Return a shaped assistant response."
+      ],
+      "acceptanceCriteria": [
+        "Core exports AgentRunner for later CLI and channel use.",
+        "Provider denials produce safe typed failures, runner/provider audit records, and error transcript events.",
+        "Tests cover successful turn, denied provider call, transcript persistence, awaited append ordering, append failure paths, and session metadata touch behavior."
+      ],
+      "checks": [
+        "pnpm.cmd --filter @dominic-nexus/core typecheck",
+        "pnpm.cmd --filter @dominic-nexus/core test",
+        "pnpm.cmd lint",
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P05-T03"
+      ]
+    },
+    {
+      "id": "P05-T05",
+      "phase": "P05-core-runtime-sessions",
+      "priority": "P1",
+      "status": "done",
+      "title": "Add event bus",
+      "goal": "Let CLI, Gateway, audit, and UI observe runtime events without tight coupling.",
+      "scope": [
+        "Define event bus interface.",
+        "Emit lifecycle, session, provider, tool, and error events.",
+        "Add in-memory subscriber for tests."
+      ],
+      "acceptanceCriteria": [
+        "Events are emitted in deterministic order for a single turn.",
+        "Subscriber errors do not break core runtime unless configured.",
+        "Event payloads are redacted."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P05-T04"
+      ]
+    },
+    {
+      "id": "P05-T06",
+      "phase": "P05-core-runtime-sessions",
+      "priority": "P1",
+      "status": "done",
+      "title": "Add cancellation and timeout handling",
+      "goal": "Bound provider and tool execution time.",
+      "scope": [
+        "Add AbortSignal support where appropriate.",
+        "Configure provider and tool timeouts.",
+        "Propagate cancellation to AgentRunner."
+      ],
+      "acceptanceCriteria": [
+        "Timed out turns produce audit and transcript events.",
+        "Cancelled operations do not emit success events.",
+        "Tests cover provider timeout and tool timeout."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P05-T04",
+        "P07-T02"
+      ]
+    },
+    {
+      "id": "P05-T07",
+      "phase": "P05-core-runtime-sessions",
+      "priority": "P1",
+      "status": "done",
+      "title": "Add session routing and queue policy",
+      "goal": "Prepare runtime for channels and concurrent inbound messages.",
+      "scope": [
+        "Define session keys for CLI and channels.",
+        "Add per-session queue behavior.",
+        "Keep routing separate from authentication."
+      ],
+      "acceptanceCriteria": [
+        "Core exposes deterministic CLI and channel routing key helpers.",
+        "AgentRunner serializes turns per routing key while separate routing keys can run concurrently.",
+        "Tests cover same-session ordering, separate-session concurrency, queue recovery, and JSON-safe routing keys."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P05-T03"
+      ]
+    },
+    {
+      "id": "P06-T01",
+      "phase": "P06-providers-models",
+      "priority": "P0",
+      "status": "done",
+      "title": "Add ModelRef parser",
+      "goal": "Parse provider/model refs with first-slash semantics.",
+      "scope": [
+        "Define ModelRef type.",
+        "Split refs on the first slash because model ids may contain slashes.",
+        "Add validation and formatting helpers."
+      ],
+      "acceptanceCriteria": [
+        "openai/gpt-x parses provider=openai and model=gpt-x.",
+        "provider/vendor/model parses provider=provider and model=vendor/model.",
+        "Invalid refs fail with safe errors."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P02-T02"
+      ]
+    },
+    {
+      "id": "P06-T02",
+      "phase": "P06-providers-models",
+      "priority": "P0",
+      "status": "done",
+      "title": "Expand provider interface and registry",
+      "goal": "Support provider capabilities, model listing, and normalized execution.",
+      "scope": [
+        "Add provider capabilities.",
+        "Add listModels or equivalent model catalog hook.",
+        "Add registry errors for missing providers and unsupported models."
+      ],
+      "acceptanceCriteria": [
+        "MockProvider implements the expanded interface.",
+        "Registry can list providers and models.",
+        "Missing provider errors are safe and tested."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P06-T01"
+      ]
+    },
+    {
+      "id": "P06-T03",
+      "phase": "P06-providers-models",
+      "priority": "P0",
+      "status": "done",
+      "title": "Centralize permission-gated provider execution",
+      "goal": "Prevent callers from bypassing provider.call checks.",
+      "scope": [
+        "Move provider execution behind registry or core service.",
+        "Emit audit events around provider calls.",
+        "Keep direct provider objects usable only inside tests or adapters."
+      ],
+      "acceptanceCriteria": [
+        "AgentRunner and CLI use the centralized execution path.",
+        "Denied provider calls are audited.",
+        "Tests prove provider adapters cannot be called by core without policy."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P06-T02",
+        "P03-T05"
+      ]
+    },
+    {
+      "id": "P06-T04",
+      "phase": "P06-providers-models",
+      "priority": "P1",
+      "status": "done",
+      "title": "Add first real provider adapter",
+      "goal": "Add one opt-in provider after secrets, config, permissions, and audit are stable.",
+      "scope": [
+        "Choose the first provider deliberately.",
+        "Keep credentials behind SecretRef.",
+        "Require network and provider permissions.",
+        "Add tests using mocked transport only."
+      ],
+      "acceptanceCriteria": [
+        "No live network is used in unit tests.",
+        "Missing credentials fail closed.",
+        "Provider calls can be disabled by config/policy."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P03-T01",
+        "P04-T05",
+        "P04-T06",
+        "P06-T03"
+      ]
+    },
+    {
+      "id": "P06-T05",
+      "phase": "P06-providers-models",
+      "priority": "P2",
+      "status": "done",
+      "title": "Add local provider placeholder",
+      "goal": "Prepare for local model runtimes without making them mandatory.",
+      "scope": [
+        "Define adapter shape for local HTTP or CLI model providers.",
+        "Keep network/shell policy explicit depending on transport.",
+        "Document setup as optional."
+      ],
+      "acceptanceCriteria": [
+        "Placeholder does not require installing a model runtime.",
+        "Tests use mocks only.",
+        "No background service starts automatically."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P06-T03"
+      ]
+    },
+    {
+      "id": "P06-T06",
+      "phase": "P06-providers-models",
+      "priority": "P2",
+      "status": "deferred",
+      "title": "Add provider fallback and cooldowns",
+      "goal": "Support configured fallback chains after basic provider behavior is stable.",
+      "scope": [
+        "Classify provider failures.",
+        "Persist narrow cooldown state.",
+        "Distinguish strict user-selected models from configured defaults."
+      ],
+      "acceptanceCriteria": [
+        "User-selected model failures fail visibly.",
+        "Configured defaults can fall back when policy allows.",
+        "Cooldown writes do not overwrite unrelated session state."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P06-T04",
+        "P05-T02"
+      ]
+    },
+    {
+      "id": "P07-T01",
+      "phase": "P07-tools",
+      "priority": "P0",
+      "status": "done",
+      "title": "Add tool input and output schemas",
+      "goal": "Validate tool calls before executing handlers.",
+      "scope": [
+        "Add schema shape to ToolDefinition.",
+        "Validate input and safe output serialization.",
+        "Represent validation failures as safe errors."
+      ],
+      "acceptanceCriteria": [
+        "Invalid input never reaches a tool handler.",
+        "Validation errors are audited.",
+        "Echo tool and tests migrate to the new shape."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P02-T02",
+        "P03-T05"
+      ]
+    },
+    {
+      "id": "P07-T02",
+      "phase": "P07-tools",
+      "priority": "P0",
+      "status": "done",
+      "title": "Implement central tool invocation pipeline",
+      "goal": "Make permissions, audit, validation, timeouts, and redaction mandatory for all tools.",
+      "scope": [
+        "Wrap all tool execution in one service.",
+        "Emit started, denied, failed, and completed events.",
+        "Prevent direct handler execution outside tests."
+      ],
+      "acceptanceCriteria": [
+        "All required permissions are checked before handler execution.",
+        "Denied tool calls do not run handlers.",
+        "Audit events do not include sensitive inputs unless explicitly safe."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P07-T01",
+        "P03-T05"
+      ]
+    },
+    {
+      "id": "P07-T03",
+      "phase": "P07-tools",
+      "priority": "P0",
+      "status": "done",
+      "title": "Add read-only filesystem tool",
+      "goal": "Allow safe workspace reads through policy-gated tools.",
+      "scope": [
+        "Read files under configured roots.",
+        "Use filesystem.read permission.",
+        "Respect file size limits and binary detection."
+      ],
+      "acceptanceCriteria": [
+        "Reads outside approved roots fail.",
+        "Large or binary files are handled safely.",
+        "Tests cover Windows path normalization."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P04-T03",
+        "P07-T02"
+      ]
+    },
+    {
+      "id": "P07-T04",
+      "phase": "P07-tools",
+      "priority": "P0",
+      "status": "done",
+      "title": "Add explicit-approval filesystem write tool",
+      "goal": "Support controlled local edits after read tooling is safe.",
+      "scope": [
+        "Write, create, and patch files under approved roots.",
+        "Require filesystem.write permission.",
+        "Audit exact path and operation."
+      ],
+      "acceptanceCriteria": [
+        "Writes outside approved roots fail.",
+        "Denied approval leaves files unchanged.",
+        "Tests cover create, update, denied write, and traversal attempts."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P07-T03"
+      ]
+    },
+    {
+      "id": "P07-T05",
+      "phase": "P07-tools",
+      "priority": "P1",
+      "status": "done",
+      "title": "Add web fetch tool",
+      "goal": "Support explicit-consent network fetches.",
+      "scope": [
+        "Fetch URLs only after network.request permission.",
+        "Limit response size and content types.",
+        "Audit host, URL, decision, and result metadata without storing sensitive headers."
+      ],
+      "acceptanceCriteria": [
+        "Default policy denies fetch.",
+        "Tests mock transport and do not use live network.",
+        "Redirect behavior is explicit and tested."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P04-T05",
+        "P07-T02"
+      ]
+    },
+    {
+      "id": "P07-T06",
+      "phase": "P07-tools",
+      "priority": "P1",
+      "status": "done",
+      "title": "Add web search provider interface",
+      "goal": "Prepare search as an optional network-backed capability.",
+      "scope": [
+        "Define web search adapter interface.",
+        "Keep search providers behind plugins or provider adapters.",
+        "Require network.request permission."
+      ],
+      "acceptanceCriteria": [
+        "No default live search provider is enabled.",
+        "Search requests are audited.",
+        "Tests use mocked search adapters."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P07-T05",
+        "P12-T03"
+      ]
+    },
+    {
+      "id": "P07-T07",
+      "phase": "P07-tools",
+      "priority": "P0",
+      "status": "done",
+      "title": "Add shell tool disabled by default",
+      "goal": "Support shell execution only through strict approval and audit.",
+      "scope": [
+        "Implement shell tool request and result types.",
+        "Require shell.execute permission.",
+        "Apply cwd, env, timeout, and output limits.",
+        "Handle Windows PowerShell/cmd differences explicitly."
+      ],
+      "acceptanceCriteria": [
+        "Default config disables shell tool.",
+        "Approved shell requests audit command, cwd, env metadata, and exit code.",
+        "Denied requests do not spawn a process."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P04-T04",
+        "P07-T02"
+      ]
+    },
+    {
+      "id": "P07-T08",
+      "phase": "P07-tools",
+      "priority": "P1",
+      "status": "todo",
+      "title": "Add memory tools",
+      "goal": "Expose memory read/write through the same tool pipeline.",
+      "scope": [
+        "Add memory.search and memory.write tools.",
+        "Require memory.read and memory.write permissions.",
+        "Audit namespace and operation without leaking sensitive content unnecessarily."
+      ],
+      "acceptanceCriteria": [
+        "Memory tools use MemoryStore instead of direct files.",
+        "Denied memory.write does not mutate memory.",
+        "Tests cover search and write through ToolRegistry."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P07-T02",
+        "P08-T02"
+      ]
+    },
+    {
+      "id": "P08-T01",
+      "phase": "P08-memory",
+      "priority": "P0",
+      "status": "done",
+      "title": "Define durable memory model",
+      "goal": "Move beyond in-memory records toward local-first durable memory.",
+      "scope": [
+        "Define memory root and namespace behavior.",
+        "Separate memory records from session transcripts.",
+        "Document what memory writes require approval."
+      ],
+      "acceptanceCriteria": [
+        "Memory model is documented in package types or docs.",
+        "Memory writes are permission-gated.",
+        "Existing InMemoryStore remains useful for tests."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P04-T03",
+        "P03-T05"
+      ]
+    },
+    {
+      "id": "P08-T02",
+      "phase": "P08-memory",
+      "priority": "P0",
+      "status": "done",
+      "title": "Implement Markdown memory store",
+      "goal": "Persist local memory in human-readable files.",
+      "scope": [
+        "Support MEMORY.md under configured workspace/state root.",
+        "Add read, append, and replace operations as appropriate.",
+        "Use filesystem policy and audit."
+      ],
+      "acceptanceCriteria": [
+        "Memory file path is bounded to approved roots.",
+        "Writes require memory.write and filesystem.write where appropriate.",
+        "Tests cover read, write, denied write, and missing file behavior."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P08-T01"
+      ]
+    },
+    {
+      "id": "P08-T03",
+      "phase": "P08-memory",
+      "priority": "P1",
+      "status": "done",
+      "title": "Add daily memory notes",
+      "goal": "Support date-scoped local notes under memory/YYYY-MM-DD.md.",
+      "scope": [
+        "Create daily note path helpers.",
+        "Append dated memory entries.",
+        "Search across daily notes with limits."
+      ],
+      "acceptanceCriteria": [
+        "Daily note paths are deterministic and root-bounded.",
+        "Invalid dates are rejected.",
+        "Tests cover append and search across multiple days."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P08-T02",
+        "P02-T04"
+      ]
+    },
+    {
+      "id": "P08-T04",
+      "phase": "P08-memory",
+      "priority": "P1",
+      "status": "todo",
+      "title": "Add keyword memory search",
+      "goal": "Provide local search without a semantic/vector dependency.",
+      "scope": [
+        "Search MEMORY.md and daily notes.",
+        "Return snippets and source paths.",
+        "Limit result count and scanned bytes."
+      ],
+      "acceptanceCriteria": [
+        "Search is deterministic and case behavior is documented.",
+        "Large memory files are bounded.",
+        "Tests cover multiple files and no-match results."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P08-T03"
+      ]
+    },
+    {
+      "id": "P09-T01",
+      "phase": "P09-cli",
+      "priority": "P0",
+      "status": "todo",
+      "title": "Move CLI chat through AgentRunner",
+      "goal": "Keep CLI as an interface, not a runtime implementation.",
+      "scope": [
+        "Replace direct provider calls in CLI with core AgentRunner.",
+        "Preserve /exit behavior.",
+        "Surface permission denials clearly."
+      ],
+      "acceptanceCriteria": [
+        "CLI no longer assembles provider requests directly.",
+        "Chat turns persist transcripts when session store is configured.",
+        "Tests cover CLI input with AgentRunner mock or test runtime."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test",
+        "pnpm.cmd dev"
+      ],
+      "dependencies": [
+        "P05-T04"
+      ]
+    },
+    {
+      "id": "P09-T02",
+      "phase": "P09-cli",
+      "priority": "P0",
+      "status": "todo",
+      "title": "Add core slash commands",
+      "goal": "Provide local operator controls inside chat.",
+      "scope": [
+        "Implement /status, /tools, /memory, /sessions, /model, and /help.",
+        "Keep slash command handling outside the model.",
+        "Avoid leaking secrets in output."
+      ],
+      "acceptanceCriteria": [
+        "Slash commands do not call the provider.",
+        "Unknown slash commands return a clear local error.",
+        "Tests cover every initial slash command."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test",
+        "pnpm.cmd dev"
+      ],
+      "dependencies": [
+        "P09-T01",
+        "P08-T02"
+      ]
+    },
+    {
+      "id": "P09-T03",
+      "phase": "P09-cli",
+      "priority": "P1",
+      "status": "todo",
+      "title": "Add config CLI commands",
+      "goal": "Let users inspect and update local config safely.",
+      "scope": [
+        "Add config get, set, unset, validate, and path commands.",
+        "Use config package write primitives.",
+        "Require filesystem.write permission for mutations."
+      ],
+      "acceptanceCriteria": [
+        "Config get never resolves or prints secret values.",
+        "Invalid set/unset operations fail without writing partial config.",
+        "Tests cover JSON stdout and human output modes."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P03-T02"
+      ]
+    },
+    {
+      "id": "P09-T04",
+      "phase": "P09-cli",
+      "priority": "P1",
+      "status": "todo",
+      "title": "Add secrets CLI commands",
+      "goal": "Expose secret metadata and audits without exposing secret values.",
+      "scope": [
+        "Add secrets list, check, and audit commands.",
+        "Show SecretRef metadata only.",
+        "Keep direct secret reads behind permission and redaction."
+      ],
+      "acceptanceCriteria": [
+        "Secret values are never printed.",
+        "Missing active secrets produce clear failure output.",
+        "Tests cover redaction in CLI output."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P04-T06",
+        "P09-T03"
+      ]
+    },
+    {
+      "id": "P09-T05",
+      "phase": "P09-cli",
+      "priority": "P1",
+      "status": "todo",
+      "title": "Add sessions CLI commands",
+      "goal": "Allow users to list, inspect, and resume local sessions.",
+      "scope": [
+        "Add sessions list, show, resume, and transcript path commands.",
+        "Read from session store and transcript store.",
+        "Support JSON stdout mode."
+      ],
+      "acceptanceCriteria": [
+        "Sessions are listed with safe metadata.",
+        "Transcript output can be bounded by count or time.",
+        "Tests cover empty and populated stores."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P05-T03",
+        "P09-T01"
+      ]
+    },
+    {
+      "id": "P09-T06",
+      "phase": "P09-cli",
+      "priority": "P1",
+      "status": "todo",
+      "title": "Add security audit CLI command",
+      "goal": "Give users a local security posture report.",
+      "scope": [
+        "Check config path, state path, risky tools, network/provider settings, plugins, and secrets.",
+        "Report warnings and failures without exposing values.",
+        "Support human and JSON output."
+      ],
+      "acceptanceCriteria": [
+        "Audit reports shell/network/provider/plugin risky states.",
+        "No secret values appear in audit output.",
+        "Tests cover safe and risky configurations."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P03-T01",
+        "P04-T06",
+        "P07-T07"
+      ]
+    },
+    {
+      "id": "P09-T07",
+      "phase": "P09-cli",
+      "priority": "P2",
+      "status": "todo",
+      "title": "Add JSON stdout mode",
+      "goal": "Make CLI commands scriptable without parsing human text.",
+      "scope": [
+        "Add --json or command-specific JSON output.",
+        "Keep errors machine-readable.",
+        "Ensure chat mode remains human-first."
+      ],
+      "acceptanceCriteria": [
+        "Config, sessions, providers, tools, plugins, and audit commands support JSON where relevant.",
+        "JSON mode writes logs to stderr or suppresses them safely.",
+        "Tests cover valid JSON output."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P09-T03",
+        "P09-T05",
+        "P09-T06"
+      ]
+    },
+    {
+      "id": "P10-T01",
+      "phase": "P10-local-gateway-rpc",
+      "priority": "P1",
+      "status": "todo",
+      "title": "Design Gateway protocol",
+      "goal": "Define the local control plane before implementing HTTP or WebSocket surfaces.",
+      "scope": [
+        "Define request, response, error, event, and auth shapes.",
+        "Define side-effect idempotency requirements.",
+        "Document local and tailnet trust assumptions."
+      ],
+      "acceptanceCriteria": [
+        "Protocol docs avoid treating session IDs as auth.",
+        "WebSocket clients require first-frame connect.",
+        "Side-effecting methods include idempotency keys."
+      ],
+      "checks": [
+        "Docs-only review.",
+        "pnpm.cmd typecheck if protocol types are added"
+      ],
+      "dependencies": [
+        "P05-T05",
+        "P00-T03"
+      ]
+    },
+    {
+      "id": "P10-T02",
+      "phase": "P10-local-gateway-rpc",
+      "priority": "P1",
+      "status": "todo",
+      "title": "Implement local Gateway process",
+      "goal": "Host the runtime behind a local control plane.",
+      "scope": [
+        "Start and stop local Gateway.",
+        "Load config and runtime dependencies.",
+        "Expose health/status endpoint."
+      ],
+      "acceptanceCriteria": [
+        "Gateway does not bind publicly by default.",
+        "Startup fails closed on invalid config or active secret failures.",
+        "Tests cover startup, shutdown, and invalid config."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P10-T01",
+        "P05-T04"
+      ]
+    },
+    {
+      "id": "P10-T03",
+      "phase": "P10-local-gateway-rpc",
+      "priority": "P1",
+      "status": "todo",
+      "title": "Add authenticated local HTTP API",
+      "goal": "Expose status, sessions, config, and chat operations to local clients.",
+      "scope": [
+        "Add minimal HTTP server.",
+        "Require local auth token or equivalent operator credential.",
+        "Route calls through core services."
+      ],
+      "acceptanceCriteria": [
+        "Unauthenticated calls fail.",
+        "Side-effecting calls require idempotency keys.",
+        "Provider and tool execution still uses permissions."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P10-T02"
+      ]
+    },
+    {
+      "id": "P10-T04",
+      "phase": "P10-local-gateway-rpc",
+      "priority": "P1",
+      "status": "todo",
+      "title": "Add WebSocket event streaming",
+      "goal": "Stream runtime events to CLI and future web UI.",
+      "scope": [
+        "Require first frame to be connect.",
+        "Authenticate before subscribing.",
+        "Stream redacted domain events."
+      ],
+      "acceptanceCriteria": [
+        "Invalid first frames close the socket.",
+        "Events are redacted and ordered per connection.",
+        "Tests cover connect, auth failure, and event delivery."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P10-T03",
+        "P05-T05"
+      ]
+    },
+    {
+      "id": "P10-T05",
+      "phase": "P10-local-gateway-rpc",
+      "priority": "P2",
+      "status": "todo",
+      "title": "Add daemon lifecycle commands",
+      "goal": "Let CLI manage local Gateway lifecycle.",
+      "scope": [
+        "Add gateway start, stop, status, and logs commands.",
+        "Avoid background startup unless explicitly requested.",
+        "Handle stale PID/state files safely."
+      ],
+      "acceptanceCriteria": [
+        "Gateway does not auto-start silently.",
+        "Commands work on Windows PowerShell.",
+        "Tests cover lifecycle state transitions with mocks."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P10-T04",
+        "P09-T07"
+      ]
+    },
+    {
+      "id": "P11-T01",
+      "phase": "P11-web-ui",
+      "priority": "P2",
+      "status": "todo",
+      "title": "Scaffold local web UI",
+      "goal": "Create the operator UI only after Gateway contracts exist.",
+      "scope": [
+        "Create or complete apps/web Vite app.",
+        "Use existing project conventions.",
+        "Connect only to local Gateway APIs."
+      ],
+      "acceptanceCriteria": [
+        "Web app starts locally.",
+        "No cloud telemetry or external analytics are added.",
+        "Build and tests are wired into workspace scripts."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test",
+        "pnpm.cmd build"
+      ],
+      "dependencies": [
+        "P10-T04"
+      ]
+    },
+    {
+      "id": "P11-T02",
+      "phase": "P11-web-ui",
+      "priority": "P2",
+      "status": "todo",
+      "title": "Add web status and audit views",
+      "goal": "Expose runtime health and sensitive action history.",
+      "scope": [
+        "Display runtime status.",
+        "Display redacted audit events.",
+        "Filter by session, action, decision, and time."
+      ],
+      "acceptanceCriteria": [
+        "Audit view never displays secret values.",
+        "Denied and allowed actions are distinguishable.",
+        "UI handles empty states and connection failures."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test",
+        "pnpm.cmd build"
+      ],
+      "dependencies": [
+        "P11-T01",
+        "P03-T05"
+      ]
+    },
+    {
+      "id": "P11-T03",
+      "phase": "P11-web-ui",
+      "priority": "P2",
+      "status": "todo",
+      "title": "Add web chat and session views",
+      "goal": "Provide a local UI for chat, transcripts, and session management.",
+      "scope": [
+        "List sessions.",
+        "Show transcript events.",
+        "Send user messages through Gateway.",
+        "Surface approval prompts if supported."
+      ],
+      "acceptanceCriteria": [
+        "Chat uses Gateway APIs, not direct provider calls.",
+        "Transcript rendering handles tool and error events.",
+        "Session actions require authenticated local operator access."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test",
+        "pnpm.cmd build"
+      ],
+      "dependencies": [
+        "P11-T01",
+        "P10-T04",
+        "P05-T03"
+      ]
+    },
+    {
+      "id": "P11-T04",
+      "phase": "P11-web-ui",
+      "priority": "P2",
+      "status": "todo",
+      "title": "Add web settings and capability views",
+      "goal": "Let users inspect config, providers, tools, plugins, and channels.",
+      "scope": [
+        "Read and update safe config fields.",
+        "List providers, tools, plugins, and channels.",
+        "Show permission state and risky capability warnings."
+      ],
+      "acceptanceCriteria": [
+        "Secret values are never displayed.",
+        "Risky toggles require explicit confirmation.",
+        "Config mutations go through Gateway and audit."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test",
+        "pnpm.cmd build"
+      ],
+      "dependencies": [
+        "P11-T02",
+        "P09-T03",
+        "P12-T05"
+      ]
+    },
+    {
+      "id": "P12-T01",
+      "phase": "P12-plugins-sdk",
+      "priority": "P1",
+      "status": "todo",
+      "title": "Define plugin manifest schema",
+      "goal": "Support manifest-first plugin metadata without runtime import.",
+      "scope": [
+        "Define id, name, version, description, capabilities, configSchema, and entry fields.",
+        "Validate manifests strictly.",
+        "Document trusted plugin assumptions."
+      ],
+      "acceptanceCriteria": [
+        "Invalid manifests fail before plugin code loads.",
+        "Manifest parsing does not import runtime modules.",
+        "Tests cover valid and invalid manifests."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P03-T01",
+        "P00-T03"
+      ]
+    },
+    {
+      "id": "P12-T02",
+      "phase": "P12-plugins-sdk",
+      "priority": "P1",
+      "status": "todo",
+      "title": "Implement plugin metadata discovery",
+      "goal": "List installed plugin metadata without executing plugin runtime code.",
+      "scope": [
+        "Scan configured plugin roots.",
+        "Parse manifests.",
+        "Reject path traversal and symlink escapes."
+      ],
+      "acceptanceCriteria": [
+        "Discovery is read-only and root-bounded.",
+        "Invalid plugin metadata is reported safely.",
+        "No plugin entrypoint is imported during discovery."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P12-T01",
+        "P04-T03"
+      ]
+    },
+    {
+      "id": "P12-T03",
+      "phase": "P12-plugins-sdk",
+      "priority": "P1",
+      "status": "todo",
+      "title": "Define narrow plugin SDK API",
+      "goal": "Expose extension contracts without exposing core internals.",
+      "scope": [
+        "Define PluginApi and capability registration types.",
+        "Export only stable public subpaths.",
+        "Avoid wildcard re-exports of internal packages."
+      ],
+      "acceptanceCriteria": [
+        "Plugin SDK can describe provider, tool, channel, and memory capabilities.",
+        "Plugin SDK does not import packages/core internals.",
+        "Boundary tests protect SDK exports."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P12-T01",
+        "P04-T07"
+      ]
+    },
+    {
+      "id": "P12-T04",
+      "phase": "P12-plugins-sdk",
+      "priority": "P1",
+      "status": "todo",
+      "title": "Implement trusted plugin runtime loader",
+      "goal": "Load explicitly enabled plugins into a narrow runtime API.",
+      "scope": [
+        "Require plugin.execute permission or config allowlist.",
+        "Load entrypoint only after manifest validation.",
+        "Register capabilities through PluginApi."
+      ],
+      "acceptanceCriteria": [
+        "Disabled plugins are not imported.",
+        "Enabled plugin load emits audit events.",
+        "Plugin failures do not corrupt global registry snapshots."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P12-T02",
+        "P12-T03",
+        "P04-T01"
+      ]
+    },
+    {
+      "id": "P12-T05",
+      "phase": "P12-plugins-sdk",
+      "priority": "P1",
+      "status": "todo",
+      "title": "Register plugin capabilities",
+      "goal": "Let plugins contribute providers, tools, channels, memory, and commands through registries.",
+      "scope": [
+        "Add capability registration flow.",
+        "Validate duplicate IDs and conflicts.",
+        "Keep registry snapshots replaceable."
+      ],
+      "acceptanceCriteria": [
+        "Plugin capabilities appear in list commands.",
+        "Duplicate capability IDs fail safely.",
+        "Capability registration is audited."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P12-T04",
+        "P06-T02",
+        "P07-T02",
+        "P13-T01"
+      ]
+    },
+    {
+      "id": "P12-T06",
+      "phase": "P12-plugins-sdk",
+      "priority": "P2",
+      "status": "todo",
+      "title": "Add minimal bundled example plugin",
+      "goal": "Prove plugin manifest, discovery, loading, and capability registration end to end.",
+      "scope": [
+        "Create one small local plugin under dominic-nexus.",
+        "Register a safe no-network capability.",
+        "Document how it is enabled."
+      ],
+      "acceptanceCriteria": [
+        "Example plugin is disabled by default.",
+        "Enabling it requires explicit config or approval.",
+        "Tests cover discovery and load."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P12-T05"
+      ]
+    },
+    {
+      "id": "P13-T01",
+      "phase": "P13-channels",
+      "priority": "P1",
+      "status": "todo",
+      "title": "Define channel adapter contracts",
+      "goal": "Normalize inbound and outbound messaging before real integrations.",
+      "scope": [
+        "Define ChannelAdapter, InboundMessage, OutboundMessage, SenderIdentity, ThreadIdentity, and ChannelContext.",
+        "Keep provider and channel layers separate.",
+        "Avoid network dependencies in the core contract."
+      ],
+      "acceptanceCriteria": [
+        "Contracts represent DM, group, room, thread, account, and sender metadata.",
+        "No channel contract imports provider internals.",
+        "Tests cover message normalization helpers."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P02-T01",
+        "P04-T07"
+      ]
+    },
+    {
+      "id": "P13-T02",
+      "phase": "P13-channels",
+      "priority": "P1",
+      "status": "todo",
+      "title": "Add local console channel adapter",
+      "goal": "Exercise channel routing without external network.",
+      "scope": [
+        "Adapt CLI-like input into channel messages.",
+        "Route outbound replies to local output.",
+        "Use same session routing as future channels."
+      ],
+      "acceptanceCriteria": [
+        "Console channel uses core runtime and AgentRunner.",
+        "No external network or provider bypass is introduced.",
+        "Tests cover inbound normalization and outbound delivery."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P13-T01",
+        "P05-T04"
+      ]
+    },
+    {
+      "id": "P13-T03",
+      "phase": "P13-channels",
+      "priority": "P1",
+      "status": "todo",
+      "title": "Implement channel access policy",
+      "goal": "Separate trigger authorization from supplemental context visibility.",
+      "scope": [
+        "Support DM allowlist policy.",
+        "Require mention by default in group contexts.",
+        "Represent supplemental quoted/thread context visibility separately."
+      ],
+      "acceptanceCriteria": [
+        "Unauthorized inbound messages do not trigger the agent.",
+        "Group messages require mention unless configured otherwise.",
+        "Denied triggers are audited without leaking message content unnecessarily."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P13-T01",
+        "P03-T05"
+      ]
+    },
+    {
+      "id": "P13-T04",
+      "phase": "P13-channels",
+      "priority": "P1",
+      "status": "todo",
+      "title": "Add channel session routing",
+      "goal": "Route channel messages to stable sessions.",
+      "scope": [
+        "Map channel, account, room/thread, and sender identity to session keys.",
+        "Avoid treating session keys as auth.",
+        "Support per-session queue policy."
+      ],
+      "acceptanceCriteria": [
+        "Messages from different threads route to separate sessions when configured.",
+        "Routing metadata is persisted safely.",
+        "Tests cover DM and group routing."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P13-T03",
+        "P05-T07"
+      ]
+    },
+    {
+      "id": "P13-T05",
+      "phase": "P13-channels",
+      "priority": "P1",
+      "status": "todo",
+      "title": "Add outbound response shaping",
+      "goal": "Prevent accidental bad channel output.",
+      "scope": [
+        "Filter NO_REPLY and no_reply final answers.",
+        "Suppress duplicate visible confirmations from messaging tools.",
+        "Normalize channel-specific outbound formatting."
+      ],
+      "acceptanceCriteria": [
+        "NO_REPLY is never sent as user-facing text.",
+        "Duplicate tool confirmations are suppressed.",
+        "Tests cover final response shaping for channel output."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P13-T04",
+        "P05-T04"
+      ]
+    },
+    {
+      "id": "P13-T06",
+      "phase": "P13-channels",
+      "priority": "P2",
+      "status": "deferred",
+      "title": "Add first external channel plugin",
+      "goal": "Add one selected channel after secrets, network, plugins, and routing are stable.",
+      "scope": [
+        "Choose one channel deliberately.",
+        "Keep credentials behind SecretRef.",
+        "Require network permission.",
+        "Document setup and risks."
+      ],
+      "acceptanceCriteria": [
+        "Channel is disabled by default.",
+        "Inbound trigger policy is tested.",
+        "No live network is used in unit tests."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P12-T05",
+        "P13-T05",
+        "P04-T05",
+        "P04-T06"
+      ]
+    },
+    {
+      "id": "P14-T01",
+      "phase": "P14-skills-mcp-advanced",
+      "priority": "P2",
+      "status": "todo",
+      "title": "Define skill manifest and loader",
+      "goal": "Support local skill folders without weakening plugin boundaries.",
+      "scope": [
+        "Define skill metadata and entry files.",
+        "Load skill descriptions and assets read-only.",
+        "Reject symlink escapes from skill roots."
+      ],
+      "acceptanceCriteria": [
+        "Skill discovery is read-only and root-bounded.",
+        "Invalid skill metadata fails safely.",
+        "Tests cover symlink/traversal guardrails."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P04-T03",
+        "P12-T02"
+      ]
+    },
+    {
+      "id": "P14-T02",
+      "phase": "P14-skills-mcp-advanced",
+      "priority": "P2",
+      "status": "todo",
+      "title": "Add skill CLI commands",
+      "goal": "Let users list and inspect installed local skills.",
+      "scope": [
+        "Add skills list and show commands.",
+        "Do not execute skill code during listing.",
+        "Support JSON output."
+      ],
+      "acceptanceCriteria": [
+        "Skill values are shown as metadata only.",
+        "Invalid skills are reported safely.",
+        "Tests cover empty, valid, and invalid skill roots."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P14-T01",
+        "P09-T07"
+      ]
+    },
+    {
+      "id": "P14-T03",
+      "phase": "P14-skills-mcp-advanced",
+      "priority": "P2",
+      "status": "deferred",
+      "title": "Add MCP abstraction",
+      "goal": "Prepare optional MCP integrations behind permissions and audit.",
+      "scope": [
+        "Define MCP server/client configuration shape.",
+        "Require explicit enablement.",
+        "Route tool-like calls through permission and audit pipeline."
+      ],
+      "acceptanceCriteria": [
+        "MCP is disabled by default.",
+        "MCP tool calls cannot bypass ToolRegistry policy.",
+        "Tests use local mocks only."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P07-T02",
+        "P12-T05"
+      ]
+    },
+    {
+      "id": "P14-T04",
+      "phase": "P14-skills-mcp-advanced",
+      "priority": "P2",
+      "status": "deferred",
+      "title": "Add optional media and document capability slots",
+      "goal": "Represent advanced media/document features as plugins, not core requirements.",
+      "scope": [
+        "Define media understanding, media generation, document extract, speech, and browser automation capability types.",
+        "Keep all network/shell/browser behavior permission-gated.",
+        "Do not enable providers by default."
+      ],
+      "acceptanceCriteria": [
+        "Core runtime does not depend on media providers.",
+        "Capability slots can be listed and disabled.",
+        "Tests cover registration only, not live services."
+      ],
+      "checks": [
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P12-T05",
+        "P04-T05",
+        "P07-T07"
+      ]
+    },
+    {
+      "id": "P15-T01",
+      "phase": "P15-qa-release-packaging",
+      "priority": "P1",
+      "status": "todo",
+      "title": "Define test topology",
+      "goal": "Organize unit, integration, boundary, CLI e2e, Gateway e2e, and web tests.",
+      "scope": [
+        "Document test lanes.",
+        "Add package or root test config as needed.",
+        "Keep live/network tests separate and opt-in."
+      ],
+      "acceptanceCriteria": [
+        "Default pnpm.cmd test does not require network.",
+        "Boundary and security tests run by default or a documented command.",
+        "Live tests are clearly opt-in."
+      ],
+      "checks": [
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P04-T07",
+        "P10-T04",
+        "P11-T01"
+      ]
+    },
+    {
+      "id": "P15-T02",
+      "phase": "P15-qa-release-packaging",
+      "priority": "P1",
+      "status": "todo",
+      "title": "Add security regression suite",
+      "goal": "Continuously test the privacy and consent guarantees.",
+      "scope": [
+        "Test secret redaction.",
+        "Test denied shell/network/filesystem/provider/plugin actions.",
+        "Test path traversal and symlink escape prevention.",
+        "Test no telemetry defaults."
+      ],
+      "acceptanceCriteria": [
+        "Security tests fail if risky defaults become permissive.",
+        "No secret value appears in logs, audit, or CLI output fixtures.",
+        "Tests run without live external services."
+      ],
+      "checks": [
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P03-T05",
+        "P04-T03",
+        "P04-T04",
+        "P04-T05",
+        "P04-T06"
+      ]
+    },
+    {
+      "id": "P15-T03",
+      "phase": "P15-qa-release-packaging",
+      "priority": "P2",
+      "status": "todo",
+      "title": "Add QA scenarios",
+      "goal": "Capture end-to-end user workflows for local-first assistant behavior.",
+      "scope": [
+        "Create docs/qa-scenarios.md or tests/qa fixtures.",
+        "Cover first run, approval denial, memory write, session resume, audit review, and disabled network.",
+        "Keep live provider/channel scenarios opt-in."
+      ],
+      "acceptanceCriteria": [
+        "QA scenarios map to task phases.",
+        "Core local scenarios can be run without cloud services.",
+        "Known limitations are documented."
+      ],
+      "checks": [
+        "Docs-only review.",
+        "pnpm.cmd test if automated fixtures are added"
+      ],
+      "dependencies": [
+        "P09-T06",
+        "P15-T02"
+      ]
+    },
+    {
+      "id": "P15-T04",
+      "phase": "P15-qa-release-packaging",
+      "priority": "P2",
+      "status": "todo",
+      "title": "Add packaging and release checklist",
+      "goal": "Make releases repeatable once core behavior is stable.",
+      "scope": [
+        "Document build, typecheck, test, lint, security, and package checks.",
+        "Define what artifacts are generated and ignored.",
+        "Avoid publishing or deployment automation until explicitly requested."
+      ],
+      "acceptanceCriteria": [
+        "Release checklist is documented.",
+        "Build artifacts are ignored.",
+        "No deployment secrets are required for local checks."
+      ],
+      "checks": [
+        "pnpm.cmd build",
+        "pnpm.cmd typecheck",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P15-T01",
+        "P15-T02"
+      ]
+    },
+    {
+      "id": "P15-T05",
+      "phase": "P15-qa-release-packaging",
+      "priority": "P2",
+      "status": "deferred",
+      "title": "Add container or deployment support",
+      "goal": "Support optional packaging after local runtime is proven.",
+      "scope": [
+        "Add Docker/container files only if needed.",
+        "Document network and secret implications.",
+        "Keep local-first default behavior unchanged."
+      ],
+      "acceptanceCriteria": [
+        "Container setup does not weaken default security.",
+        "Filesystem mappings are explicit.",
+        "Deployment is opt-in and documented."
+      ],
+      "checks": [
+        "pnpm.cmd build",
+        "pnpm.cmd test"
+      ],
+      "dependencies": [
+        "P15-T04",
+        "P10-T05"
+      ]
+    }
+  ]
+}
